@@ -1,10 +1,4 @@
-# HA HACS Repository Configuration
-name: BT Music Speaker
-filename: bt_music_speaker.zip
-hide_default_branch: true
-content:
-  - domain: bt_music_speaker
-    name: BT Music Speaker
-    type: integration
-manifest: custom_components/bt_music_speaker/manifest.json
-zip_release: true
+{
+  "name": "BT Music Speaker",
+  "hide_default_branch": false
+}
