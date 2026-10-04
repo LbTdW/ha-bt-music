@@ -50,7 +50,7 @@ class BtMusicSpeakerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_HOST, default="192.168.178.57:8767"): str,
+                    vol.Required(CONF_HOST, default="192.168.178.57:8766"): str,
                     vol.Optional(CONF_API_KEY, default=DEFAULT_API_KEY): str,
                 }
             ),

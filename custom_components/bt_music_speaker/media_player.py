@@ -94,9 +94,13 @@ class BtMusicSpeakerEntity(MediaPlayerEntity):
         data = self._coordinator.data
         if not data:
             return MediaPlayerState.OFF
+        if data.get("playing", False):
+            return MediaPlayerState.PLAYING
         if data.get("connected", False):
-            if data.get("playing", False):
-                return MediaPlayerState.PLAYING
+            return MediaPlayerState.IDLE
+        if data.get("state") == "playing":
+            return MediaPlayerState.PLAYING
+        if data.get("state") == "idle":
             return MediaPlayerState.IDLE
         return MediaPlayerState.OFF
 
