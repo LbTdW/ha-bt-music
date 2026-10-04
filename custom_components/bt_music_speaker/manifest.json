@@ -1,7 +1,7 @@
 {
   "domain": "bt_music_speaker",
   "name": "BT Music Speaker",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "config_flow": true,
   "single_config_entry": true,
   "documentation": "https://github.com/LbTdW/ha-bt-music",

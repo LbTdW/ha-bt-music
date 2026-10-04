@@ -1,8 +1,9 @@
 """Media Player platform for BT Music Speaker integration."""
-import asyncio
 import logging
 from datetime import timedelta
 from typing import Any
+
+import aiohttp
 
 from homeassistant.components.media_player import (
     MediaPlayerEntity,
@@ -14,6 +15,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
     DataUpdateCoordinator,
     UpdateFailed,
 )
@@ -22,7 +24,7 @@ from .const import DOMAIN, CONF_HOST, CONF_API_KEY
 
 _LOGGER = logging.getLogger(__name__)
 
-SCAN_INTERVAL = timedelta(seconds=10)
+SCAN_INTERVAL = timedelta(seconds=5)
 
 
 async def async_setup_entry(
@@ -39,7 +41,7 @@ async def async_setup_entry(
     coordinator = BtMusicCoordinator(hass, session, host, api_key)
     await coordinator.async_config_entry_first_refresh()
 
-    async_add_entities([BtMusicSpeakerEntity(coordinator, host, api_key)], True)
+    async_add_entities([BtMusicSpeakerEntity(coordinator)], True)
 
 
 class BtMusicCoordinator(DataUpdateCoordinator):
@@ -58,45 +60,47 @@ class BtMusicCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Fetch data from REST bridge."""
-        import aiohttp
         try:
             async with self.session.get(
                 f"http://{self.host}/rest/status",
                 headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=aiohttp.ClientTimeout(total=5),
+                timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status != 200:
                     raise UpdateFailed(f"Status {resp.status}")
-                return await resp.json()
+                data = await resp.json()
+                _LOGGER.debug("BT Music status: %s", data)
+                return data
         except (aiohttp.ClientError, TimeoutError, OSError) as err:
             raise UpdateFailed(f"Error fetching status: {err}")
 
 
-class BtMusicSpeakerEntity(MediaPlayerEntity):
+class BtMusicSpeakerEntity(CoordinatorEntity, MediaPlayerEntity):
     """Representation of a BT Music Speaker."""
 
     _attr_has_entity_name = True
     _attr_name = "Sony Speaker"
     _attr_device_class = "speaker"
+    _attr_icon = "mdi:speaker"
 
-    def __init__(self, coordinator, host, api_key):
-        self._coordinator = coordinator
-        self._host = host
-        self._api_key = api_key
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
         self._attr_unique_id = "bt_music_sony_speaker"
 
     @property
-    def available(self):
+    def available(self) -> bool:
+        """Return if entity is available."""
         return self._coordinator.last_update_success
 
     @property
-    def state(self):
+    def state(self) -> MediaPlayerState:
+        """Return the state of the media player."""
         data = self._coordinator.data
         if not data:
             return MediaPlayerState.OFF
-        if data.get("playing", False):
+        if data.get("playing"):
             return MediaPlayerState.PLAYING
-        if data.get("connected", False):
+        if data.get("connected"):
             return MediaPlayerState.IDLE
         if data.get("state") == "playing":
             return MediaPlayerState.PLAYING
@@ -105,28 +109,39 @@ class BtMusicSpeakerEntity(MediaPlayerEntity):
         return MediaPlayerState.OFF
 
     @property
-    def volume_level(self):
+    def volume_level(self) -> float | None:
+        """Volume level of the media player (0..1)."""
         data = self._coordinator.data
-        if data and "volume_level" in data:
+        if data and data.get("volume_level") is not None:
             return data["volume_level"]
+        if data and data.get("volume") is not None:
+            return data["volume"] / 100.0
         return None
 
     @property
-    def media_title(self):
+    def media_title(self) -> str | None:
+        """Title of current playing media."""
         data = self._coordinator.data
         if data:
             return data.get("media_title") or data.get("current_track")
         return None
 
     @property
-    def media_artist(self):
+    def media_artist(self) -> str | None:
+        """Artist of current playing media."""
         data = self._coordinator.data
         if data:
             return data.get("media_artist") or data.get("current_artist")
         return None
 
     @property
-    def supported_features(self):
+    def media_content_type(self) -> str | None:
+        """Content type of current playing media."""
+        return MediaType.MUSIC
+
+    @property
+    def supported_features(self) -> MediaPlayerEntityFeature:
+        """Flag media player features that are supported."""
         return (
             MediaPlayerEntityFeature.TURN_ON
             | MediaPlayerEntityFeature.TURN_OFF
@@ -139,14 +154,14 @@ class BtMusicSpeakerEntity(MediaPlayerEntity):
             | MediaPlayerEntityFeature.PLAY_MEDIA
         )
 
-    async def _send_control(self, action, **kwargs):
-        import aiohttp
+    async def _send_control(self, action: str, **kwargs) -> None:
+        """Send a control command to the REST bridge."""
         payload = {"action": action, **kwargs}
         try:
             async with self._coordinator.session.post(
-                f"http://{self._host}/rest/control",
+                f"http://{self._coordinator.host}/rest/control",
                 headers={
-                    "Authorization": f"Bearer {self._api_key}",
+                    "Authorization": f"Bearer {self._coordinator.api_key}",
                     "Content-Type": "application/json",
                 },
                 json=payload,
@@ -158,38 +173,49 @@ class BtMusicSpeakerEntity(MediaPlayerEntity):
 
         await self._coordinator.async_request_refresh()
 
-    async def async_turn_on(self):
+    async def async_turn_on(self) -> None:
+        """Turn the media player on."""
         await self._send_control("power_on")
 
-    async def async_turn_off(self):
+    async def async_turn_off(self) -> None:
+        """Turn the media player off."""
         await self._send_control("power_off")
 
-    async def async_media_play(self):
+    async def async_media_play(self) -> None:
+        """Send play command."""
         await self._send_control("play")
 
-    async def async_media_pause(self):
+    async def async_media_pause(self) -> None:
+        """Send pause command."""
         await self._send_control("pause")
 
-    async def async_media_stop(self):
+    async def async_media_stop(self) -> None:
+        """Send stop command."""
         await self._send_control("stop")
 
-    async def async_media_next_track(self):
+    async def async_media_next_track(self) -> None:
+        """Send next track command."""
         await self._send_control("skip")
 
-    async def async_set_volume_level(self, volume):
-        level = int(volume * 100)
-        await self._send_control("volume", level=level)
+    async def async_set_volume_level(self, volume: float) -> None:
+        """Set volume level, range 0..1."""
+        await self._send_control("volume", level=int(volume * 100))
 
-    async def async_volume_up(self):
+    async def async_volume_up(self) -> None:
+        """Volume up the media player."""
         data = self._coordinator.data
         current = data.get("volume", 50) if data else 50
         await self._send_control("volume", level=min(current + 10, 100))
 
-    async def async_volume_down(self):
+    async def async_volume_down(self) -> None:
+        """Volume down the media player."""
         data = self._coordinator.data
         current = data.get("volume", 50) if data else 50
         await self._send_control("volume", level=max(current - 10, 0))
 
-    async def async_play_media(self, media_type, media_id, **kwargs):
-        if media_type in (MediaType.MUSIC, "music", "playlist"):
+    async def async_play_media(
+        self, media_type: str, media_id: str, **kwargs: Any
+    ) -> None:
+        """Play media from search query."""
+        if media_type in (MediaType.MUSIC, "music", "playlist", "track"):
             await self._send_control("play", query=media_id)
