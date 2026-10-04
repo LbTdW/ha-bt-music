@@ -60,18 +60,22 @@ class BtMusicCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Fetch data from REST bridge."""
+        url = f"http://{self.host}/rest/status"
+        _LOGGER.info("BT Music polling %s, key=%s", url, repr(self.api_key[:8]) if self.api_key else "EMPTY")
         try:
             async with self.session.get(
-                f"http://{self.host}/rest/status",
+                url,
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status != 200:
+                    _LOGGER.error("BT Music poll returned HTTP %s", resp.status)
                     raise UpdateFailed(f"Status {resp.status}")
                 data = await resp.json()
                 _LOGGER.debug("BT Music status: %s", data)
                 return data
         except (aiohttp.ClientError, TimeoutError, OSError) as err:
+            _LOGGER.error("BT Music fetch error: %s", err)
             raise UpdateFailed(f"Error fetching status: {err}")
 
 
