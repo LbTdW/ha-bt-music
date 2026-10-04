@@ -1,0 +1,33 @@
+{
+  "title": "BT Music Speaker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "BT Music Speaker",
+        "description": "Connect to your BT Music REST bridge.",
+        "data": {
+          "host": "Host (IP:Port)",
+          "api_key": "API Key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the BT Music bridge. Check host and port.",
+      "invalid_auth": "Invalid API key."
+    },
+    "abort": {
+      "single_instance_allowed": "Only one BT Music Speaker instance is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "BT Music Speaker Settings",
+        "data": {
+          "host": "Host (IP:Port)",
+          "api_key": "API Key"
+        }
+      }
+    }
+  }
+}
