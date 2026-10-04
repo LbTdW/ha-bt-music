@@ -27,7 +27,7 @@ class BtMusicSpeakerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
-                        f"http://{host}/status",
+                        f"http://{host}/rest/status",
                         headers={"Authorization": f"Bearer {api_key}"},
                         timeout=aiohttp.ClientTimeout(total=5),
                     ) as resp:

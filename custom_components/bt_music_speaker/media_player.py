@@ -61,7 +61,7 @@ class BtMusicCoordinator(DataUpdateCoordinator):
         import aiohttp
         try:
             async with self.session.get(
-                f"http://{self.host}/status",
+                f"http://{self.host}/rest/status",
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 timeout=aiohttp.ClientTimeout(total=5),
             ) as resp:
@@ -144,7 +144,7 @@ class BtMusicSpeakerEntity(MediaPlayerEntity):
         payload = {"action": action, **kwargs}
         try:
             async with self._coordinator.session.post(
-                f"http://{self._host}/control",
+                f"http://{self._host}/rest/control",
                 headers={
                     "Authorization": f"Bearer {self._api_key}",
                     "Content-Type": "application/json",
